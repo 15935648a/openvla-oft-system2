@@ -666,9 +666,23 @@ def normalize_proprio(proprio: np.ndarray, norm_stats: Dict[str, Any]) -> np.nda
     Returns:
         np.ndarray: Normalized proprioception data
     """
+    # Patch for stats mismatch
+    if "min" in norm_stats and len(proprio) != len(norm_stats["min"]):
+        if len(proprio) > len(norm_stats["min"]):
+            proprio = proprio[:len(norm_stats["min"])]
+        else:
+             # Pad with zeros
+             proprio = np.pad(proprio, (0, len(norm_stats["min"]) - len(proprio)), "constant")
     if ACTION_PROPRIO_NORMALIZATION_TYPE == NormalizationType.BOUNDS:
         mask = norm_stats.get("mask", np.ones_like(norm_stats["min"], dtype=bool))
         proprio_high, proprio_low = np.array(norm_stats["max"]), np.array(norm_stats["min"])
+    # Patch for stats mismatch
+    if "q01" in norm_stats and len(proprio) != len(norm_stats["q01"]):
+        if len(proprio) > len(norm_stats["q01"]):
+            proprio = proprio[:len(norm_stats["q01"])]
+        else:
+             # Pad with zeros
+             proprio = np.pad(proprio, (0, len(norm_stats["q01"]) - len(proprio)), "constant")
     elif ACTION_PROPRIO_NORMALIZATION_TYPE == NormalizationType.BOUNDS_Q99:
         mask = norm_stats.get("mask", np.ones_like(norm_stats["q01"], dtype=bool))
         proprio_high, proprio_low = np.array(norm_stats["q99"]), np.array(norm_stats["q01"])
