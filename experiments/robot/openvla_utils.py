@@ -426,7 +426,7 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
             "moojink/openvla-7b-oft-finetuned-libero-spatial-object-goal-10": "proprio_projector--300000_checkpoint.pt",
         }
         if cfg.pretrained_checkpoint not in model_path_to_proprio_projector_name.keys():
-            raise ValueError("Unsupported HF Hub pretrained checkpoint found!")
+            print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
         # Download proprio projector directly from HF Hub
         proprio_projector_path = hf_hub_download(
             repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
@@ -508,7 +508,7 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
             "moojink/openvla-7b-oft-finetuned-libero-spatial-object-goal-10": "action_head--300000_checkpoint.pt",
         }
         if cfg.pretrained_checkpoint not in model_path_to_action_head_name.keys():
-            raise ValueError("Unsupported HF Hub pretrained checkpoint found!")
+            print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
         # Download proprio projector directly from HF Hub
         action_head_path = hf_hub_download(
             repo_id=cfg.pretrained_checkpoint, filename=model_path_to_action_head_name[cfg.pretrained_checkpoint]
