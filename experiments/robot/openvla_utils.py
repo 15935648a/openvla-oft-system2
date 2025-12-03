@@ -501,11 +501,9 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
         )
         # Set number of diffusion steps for inference
         action_head.noise_scheduler.set_timesteps(cfg.num_diffusion_steps_inference)
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
+        proprio_projector_path = hf_hub_download(repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint])
+        state_dict = load_component_state_dict(proprio_projector_path)
+        proprio_projector.load_state_dict(state_dict)
     else:
         raise ValueError("Either use_l1_regression or use_diffusion must be True")
 
