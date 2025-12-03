@@ -101,6 +101,7 @@ class GenerateConfig:
     @property
     def action_head_type(self):
         if self.use_diffusion:
+            return "diffusion"
         elif self.use_l1_regression:
             return "l1_regression"
         else:
