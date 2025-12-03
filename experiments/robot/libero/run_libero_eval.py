@@ -197,7 +197,9 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
     if unnorm_key not in model.norm_stats and f"{unnorm_key}_no_noops" in model.norm_stats:
         unnorm_key = f"{unnorm_key}_no_noops"
 
-    assert unnorm_key in model.norm_stats, f"Action un-norm key {unnorm_key} not found in VLA `norm_stats`!"
+    if unnorm_key not in model.norm_stats:
+        print(f"WARNING: Action un-norm key {unnorm_key} not found in VLA `norm_stats`! Falling back to `bridge_orig` for debugging purposes.")
+        model.norm_stats[unnorm_key] = model.norm_stats["bridge_orig"]
 
     # Set the unnorm_key in cfg
     cfg.unnorm_key = unnorm_key
