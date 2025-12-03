@@ -420,8 +420,8 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
     proprio_projector = ProprioProjector(
         llm_dim=llm_dim,
         proprio_dim=proprio_dim,
-).to(DEVICE)
-proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
+    ).to(DEVICE)
+    proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
     proprio_projector.eval()
 
     # Find and load checkpoint (may be on Hugging Face Hub or stored locally)
@@ -436,7 +436,7 @@ proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
         if cfg.pretrained_checkpoint not in model_path_to_proprio_projector_name.keys():
             print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
         else:
-# Download proprio projector directly from HF Hub
+            # Download proprio projector directly from HF Hub
             proprio_projector_path = hf_hub_download(
                 repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
             )
