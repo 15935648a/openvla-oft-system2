@@ -418,7 +418,7 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
     """
     # Initialize projector and move to device
     proprio_projector = ProprioProjector(
-        llm_dim=llm_dim,
+        input_dim=llm_dim,
         proprio_dim=proprio_dim,
     ).to(DEVICE)
     proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
@@ -463,7 +463,7 @@ def get_noisy_action_projector(cfg: Any, llm_dim: int) -> NoisyActionProjector:
     """
     # Initialize projector and move to device
     noisy_action_projector = NoisyActionProjector(
-        llm_dim=llm_dim,
+        input_dim=llm_dim,
     ).to(DEVICE)
     noisy_action_projector = noisy_action_projector.to(torch.bfloat16).to(DEVICE)
     noisy_action_projector.eval()
@@ -490,11 +490,11 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
     # Initialize action head and move to device
     if cfg.action_head_type == "l1_regression":
         action_head = L1RegressionActionHead(
-            llm_dim=llm_dim,
+            input_dim=llm_dim,
         ).to(DEVICE)
     elif cfg.action_head_type == "diffusion":
         action_head = DiffusionActionHead(
-            llm_dim=llm_dim,
+            input_dim=llm_dim,
         ).to(DEVICE)
     else:
         raise ValueError(f"Unsupported action head type: {cfg.action_head_type}")
