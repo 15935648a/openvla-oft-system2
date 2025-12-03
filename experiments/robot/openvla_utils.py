@@ -306,13 +306,6 @@ def get_vla(cfg: Any) -> torch.nn.Module:
     # Set number of images in model input
     if hasattr(vla.vision_backbone, "set_num_images_in_input"):
         vla.vision_backbone.set_num_images_in_input(cfg.num_images_in_input)
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
-    else:
-        vla.vision_backbone.num_images_in_input = cfg.num_images_in_input
 
     vla.eval()
 
