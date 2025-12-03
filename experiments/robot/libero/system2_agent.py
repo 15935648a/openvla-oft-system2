@@ -20,7 +20,11 @@ class System2Agent:
                 device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
                 logger.info(f"Using device: {device}")
 
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+                try:
+                    self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+                except Exception:
+                    logger.warning("Failed to load fast tokenizer, trying slow tokenizer...")
+                    self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
                 # Load model without device_map="auto" to avoid CUDA requirement on MPS
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
