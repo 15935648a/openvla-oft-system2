@@ -526,6 +526,7 @@ action_head = action_head.to(torch.bfloat16).to(DEVICE)
         action_head.load_state_dict(state_dict)
 
     return action_head
+
 def resize_image_for_policy(img: np.ndarray, resize_size: Union[int, Tuple[int, int]]) -> np.ndarray:
     """
     Resize an image to match the policy's expected input size.
