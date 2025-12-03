@@ -491,15 +491,15 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
     if cfg.action_head_type == "l1_regression":
         action_head = L1RegressionActionHead(
             llm_dim=llm_dim,
-).to(DEVICE)
+        ).to(DEVICE)
     elif cfg.action_head_type == "diffusion":
         action_head = DiffusionActionHead(
             llm_dim=llm_dim,
-).to(DEVICE)
+        ).to(DEVICE)
     else:
         raise ValueError(f"Unsupported action head type: {cfg.action_head_type}")
 
-action_head = action_head.to(torch.bfloat16).to(DEVICE)
+    action_head = action_head.to(torch.bfloat16).to(DEVICE)
     action_head.eval()
 
     # Find and load checkpoint (may be on Hugging Face Hub or stored locally)
@@ -514,7 +514,7 @@ action_head = action_head.to(torch.bfloat16).to(DEVICE)
         if cfg.pretrained_checkpoint not in model_path_to_action_head_name.keys():
             print("WARNING: Unsupported HF Hub checkpoint. Using random init for action head.")
         else:
-# Download action head directly from HF Hub
+            # Download action head directly from HF Hub
             action_head_path = hf_hub_download(
                 repo_id=cfg.pretrained_checkpoint, filename=model_path_to_action_head_name[cfg.pretrained_checkpoint]
             )
@@ -526,7 +526,6 @@ action_head = action_head.to(torch.bfloat16).to(DEVICE)
         action_head.load_state_dict(state_dict)
 
     return action_head
-
 def resize_image_for_policy(img: np.ndarray, resize_size: Union[int, Tuple[int, int]]) -> np.ndarray:
     """
     Resize an image to match the policy's expected input size.
