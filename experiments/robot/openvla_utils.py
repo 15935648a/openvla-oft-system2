@@ -426,9 +426,9 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
             print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
         else:
             # Download proprio projector directly from HF Hub
-        checkpoint_path = find_checkpoint_file(cfg.pretrained_checkpoint, "proprio_projector")
-        state_dict = load_component_state_dict(checkpoint_path)
-        proprio_projector.load_state_dict(state_dict)
+            checkpoint_path = find_checkpoint_file(cfg.pretrained_checkpoint, "proprio_projector")
+            state_dict = load_component_state_dict(checkpoint_path)
+            proprio_projector.load_state_dict(state_dict)
 
     return proprio_projector
 
