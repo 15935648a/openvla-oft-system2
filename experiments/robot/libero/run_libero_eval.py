@@ -101,7 +101,6 @@ class GenerateConfig:
     @property
     def action_head_type(self):
         if self.use_diffusion:
-            return "diffusion"
         elif self.use_l1_regression:
             return "l1_regression"
         else:
@@ -340,7 +339,7 @@ def run_episode(
             # If action queue is empty, requery model
             if len(action_queue) == 0:
                 # System 2 Logic
-                if system2 and (t % cfg.num_open_loop_steps == 0): 
+                if system2: 
 # Update goal occasionally or at Start
                     obs_summary = system2.summarize_observation(obs)
                     subgoal = system2.next_subgoal(task_description, obs_summary)
