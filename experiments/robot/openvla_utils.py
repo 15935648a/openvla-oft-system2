@@ -437,8 +437,8 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
     proprio_projector = ProprioProjector(
         llm_dim=llm_dim,
         proprio_dim=proprio_dim,
-    ).to(DEVICE)
-    proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
+).to(DEVICE)
+proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
     proprio_projector.eval()
 
     # Find and load checkpoint (may be on Hugging Face Hub or stored locally)
@@ -452,18 +452,8 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
         }
         if cfg.pretrained_checkpoint not in model_path_to_proprio_projector_name.keys():
             print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
         else:
-            # Download proprio projector directly from HF Hub
-        proprio_projector_path = hf_hub_download(
-            repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-        )
-        state_dict = load_component_state_dict(proprio_projector_path)
-        proprio_projector.load_state_dict(state_dict)
+# Download proprio projector directly from HF Hub
             proprio_projector_path = hf_hub_download(
                 repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
             )
@@ -475,8 +465,6 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
         proprio_projector.load_state_dict(state_dict)
 
     return proprio_projector
-
-
 def get_noisy_action_projector(cfg: Any, llm_dim: int) -> NoisyActionProjector:
     """
     Get noisy action projector for diffusion-based action prediction.
