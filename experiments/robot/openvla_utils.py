@@ -153,12 +153,6 @@ def _handle_file_sync(curr_filepath: str, checkpoint_filepath: str, file_type: s
                 f"Changes complete. The checkpoint will now use the current version of {file_type}"
                 "\n------------------------------------------------------------------------------------------------\n"
             )
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
-    else:
         # If file doesn't exist in checkpoint directory, copy it
         shutil.copy2(curr_filepath, checkpoint_filepath)
         print(
@@ -249,11 +243,6 @@ def load_component_state_dict(checkpoint_path: str) -> Dict[str, torch.Tensor]:
     for k, v in state_dict.items():
         if k.startswith("module."):
             new_state_dict[k[7:]] = v
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
         else:
             new_state_dict[k] = v
 
@@ -437,12 +426,6 @@ def get_proprio_projector(cfg: Any, llm_dim: int, proprio_dim: int) -> ProprioPr
             print("WARNING: Unsupported HF Hub checkpoint. Using random init for proprio projector.")
         else:
             # Download proprio projector directly from HF Hub
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
-    else:
         checkpoint_path = find_checkpoint_file(cfg.pretrained_checkpoint, "proprio_projector")
         state_dict = load_component_state_dict(checkpoint_path)
         proprio_projector.load_state_dict(state_dict)
@@ -802,11 +785,6 @@ def get_vla_action(
         if action_head is None:
             # Standard VLA output (single-image inputs, discrete actions)
             action, _ = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
         else:
             # Custom action head for continuous actions
             action, _ = vla.predict_action(
