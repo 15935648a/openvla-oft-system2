@@ -38,6 +38,7 @@ from experiments.robot.openvla_utils import (
     get_proprio_projector,
     resize_image_for_policy,
 )
+from experiments.robot.libero.system2_agent import System2Agent
 from experiments.robot.robot_utils import (
     DATE_TIME,
     get_action,
@@ -97,6 +98,8 @@ class GenerateConfig:
     use_proprio: bool = True                         # Whether to include proprio state in input
 
     center_crop: bool = True                         # Center crop? (if trained w/ random crop image aug)
+    use_system2: bool = False                        # Whether to use System 2 (LLM) for subgoal generation
+    system2_model: str = "gpt-4o"                    # Model name for System 2
     num_open_loop_steps: int = 8                     # Number of actions to execute open-loop before requerying policy
 
     lora_rank: int = 32                              # Rank of LoRA weight matrix (MAKE SURE THIS MATCHES TRAINING!)
@@ -285,9 +288,7 @@ def run_episode(
     action_head=None,
     proprio_projector=None,
     noisy_action_projector=None,
-    initial_state=None,
-    log_file=None,
-):
+    initial_state=None, log_file=None, system2=None):
     """Run a single episode in the environment."""
     # Reset environment
     env.reset()
@@ -320,18 +321,28 @@ def run_episode(
                 t += 1
                 continue
 
-            # Prepare observation
             observation, img = prepare_observation(obs, resize_size)
             replay_images.append(img)
 
             # If action queue is empty, requery model
             if len(action_queue) == 0:
                 # Query model to get action
+                # System 2 Logic
+                if system2:
+                    if t % cfg.num_open_loop_steps == 0: # Update goal occasionally or at Start# In a real implementation, you'd summarize the obs here
+                        obs_summary = system2.summarize_observation(obs)
+                        subgoal = system2.next_subgoal(task_description, obs_summary)
+                        # logging or print subgoal
+                        print(f"[System2] Subgoal: {subgoal}")
+                        
+                        current_task_description = subgoal
+            else:
+
                 actions = get_action(
                     cfg,
                     model,
                     observation,
-                    task_description,
+                    current_task_description,
                     processor=processor,
                     action_head=action_head,
                     proprio_projector=proprio_projector,
@@ -382,6 +393,8 @@ def run_task(
 
     # Initialize environment and get task description
     env, task_description = get_libero_env(task, cfg.model_family, resolution=cfg.env_img_res)
+    # Initialize System 2 if requested
+    system2 = System2Agent(model_name=cfg.system2_model) if cfg.use_system2 else None
 
     # Start episodes
     task_episodes, task_successes = 0, 0
@@ -420,6 +433,7 @@ def run_task(
             noisy_action_projector,
             initial_state,
             log_file,
+            system2=system2,
         )
 
         # Update counters
