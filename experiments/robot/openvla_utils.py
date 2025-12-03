@@ -490,11 +490,11 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
     # Initialize action head and move to device
     if cfg.action_head_type == "l1_regression":
         action_head = L1RegressionActionHead(
-            llm_dim=llm_dim,
+            input_dim=llm_dim,
         ).to(DEVICE)
     elif cfg.action_head_type == "diffusion":
         action_head = DiffusionActionHead(
-            llm_dim=llm_dim,
+            input_dim=llm_dim,
         ).to(DEVICE)
     else:
         raise ValueError(f"Unsupported action head type: {cfg.action_head_type}")
