@@ -448,6 +448,8 @@ proprio_projector = proprio_projector.to(torch.bfloat16).to(DEVICE)
         proprio_projector.load_state_dict(state_dict)
 
     return proprio_projector
+
+
 def get_noisy_action_projector(cfg: Any, llm_dim: int) -> NoisyActionProjector:
     """
     Get noisy action projector for diffusion-based action prediction.
