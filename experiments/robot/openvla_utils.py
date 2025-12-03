@@ -672,12 +672,6 @@ def normalize_proprio(proprio: np.ndarray, norm_stats: Dict[str, Any]) -> np.nda
     elif ACTION_PROPRIO_NORMALIZATION_TYPE == NormalizationType.BOUNDS_Q99:
         mask = norm_stats.get("mask", np.ones_like(norm_stats["q01"], dtype=bool))
         proprio_high, proprio_low = np.array(norm_stats["q99"]), np.array(norm_stats["q01"])
-            proprio_projector_path = hf_hub_download(
-                repo_id=cfg.pretrained_checkpoint, filename=model_path_to_proprio_projector_name[cfg.pretrained_checkpoint]
-            )
-            state_dict = load_component_state_dict(proprio_projector_path)
-            proprio_projector.load_state_dict(state_dict)
-    else:
         raise ValueError("Unsupported action/proprio normalization type detected!")
 
     normalized_proprio = np.clip(
