@@ -112,6 +112,9 @@ class PrismaticVisionBackbone(nn.Module):
         # Patch LayerScale modules for HF compatibility
         self._patch_layer_scales()
 
+    def set_num_images_in_input(self, num_images: int) -> None:
+        self.num_images_in_input = num_images
+
     def _create_featurizer(self, model_id: str, img_size: int, act_layer: Optional[str]) -> nn.Module:
         """
         Create a TIMM-based featurizer model with appropriate configurations.
