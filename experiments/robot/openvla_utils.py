@@ -498,7 +498,7 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
 ).to(DEVICE)
     else:
         raise ValueError(f"Unsupported action head type: {cfg.action_head_type}")
-    
+
 action_head = action_head.to(torch.bfloat16).to(DEVICE)
     action_head.eval()
 
