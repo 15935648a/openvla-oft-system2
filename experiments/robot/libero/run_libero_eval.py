@@ -156,19 +156,19 @@ def initialize_model(cfg: GenerateConfig):
     if cfg.use_proprio:
         proprio_projector = get_proprio_projector(
             cfg,
-            model.llm_dim,
+            model.config.text_config.hidden_size,
             proprio_dim=8,  # 8-dimensional proprio for LIBERO
         )
 
     # Load action head if needed
     action_head = None
     if cfg.use_l1_regression or cfg.use_diffusion:
-        action_head = get_action_head(cfg, model.llm_dim)
+        action_head = get_action_head(cfg, model.config.text_config.hidden_size)
 
     # Load noisy action projector if using diffusion
     noisy_action_projector = None
     if cfg.use_diffusion:
-        noisy_action_projector = get_noisy_action_projector(cfg, model.llm_dim)
+        noisy_action_projector = get_noisy_action_projector(cfg, model.config.text_config.hidden_size)
 
     # Get OpenVLA processor if needed
     processor = None
