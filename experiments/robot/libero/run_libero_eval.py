@@ -308,8 +308,11 @@ def run_episode(
 
     # Setup
     t = 0
+    # Setup
+    t = 0
     replay_images = []
     max_steps = TASK_MAX_STEPS[cfg.task_suite_name]
+    current_task_description = task_description
 
     # Run episode
     success = False
@@ -326,18 +329,16 @@ def run_episode(
 
             # If action queue is empty, requery model
             if len(action_queue) == 0:
-                # Query model to get action
                 # System 2 Logic
-                if system2:
-                    if t % cfg.num_open_loop_steps == 0: # Update goal occasionally or at Start# In a real implementation, you'd summarize the obs here
-                        obs_summary = system2.summarize_observation(obs)
-                        subgoal = system2.next_subgoal(task_description, obs_summary)
-                        # logging or print subgoal
-                        print(f"[System2] Subgoal: {subgoal}")
-                        
-                        current_task_description = subgoal
-            else:
+                if system2 and (t % cfg.num_open_loop_steps == 0): 
+# Update goal occasionally or at Start
+                    obs_summary = system2.summarize_observation(obs)
+                    subgoal = system2.next_subgoal(task_description, obs_summary)
+                    # logging or print subgoal
+                    print(f"[System2] Subgoal: {subgoal}")
+                    current_task_description = subgoal
 
+                # Query model to get action
                 actions = get_action(
                     cfg,
                     model,
@@ -350,7 +351,6 @@ def run_episode(
                     use_film=cfg.use_film,
                 )
                 action_queue.extend(actions)
-
             # Get action from queue
             action = action_queue.popleft()
 
