@@ -294,7 +294,10 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         vla = _apply_film_to_vla(vla, cfg)
 
     # Set number of images in model input
-    vla.vision_backbone.set_num_images_in_input(cfg.num_images_in_input)
+    if hasattr(vla.vision_backbone, "set_num_images_in_input"):
+        vla.vision_backbone.set_num_images_in_input(cfg.num_images_in_input)
+    else:
+        vla.vision_backbone.num_images_in_input = cfg.num_images_in_input
 
     vla.eval()
 
