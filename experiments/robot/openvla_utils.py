@@ -385,8 +385,8 @@ def _load_dataset_stats(vla: torch.nn.Module, checkpoint_path: str) -> None:
         with open(dataset_statistics_path, "r") as f:
             norm_stats = json.load(f)
         vla.norm_stats = norm_stats
-            "WARNING: No local dataset_statistics.json file found for current checkpoint.\n"
-            "You can ignore this if you are loading the base VLA (i.e. not fine-tuned) checkpoint."
+    else:
+        print(
             "Otherwise, you may run into errors when trying to call `predict_action()` due to an absent `unnorm_key`."
         )
 
