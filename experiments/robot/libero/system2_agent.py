@@ -35,7 +35,9 @@ class System2Agent:
                 logger.info(f"Successfully loaded {model_name}")
             except Exception as e:
                 logger.error(f"Failed to load local model {model_name}: {e}")
-                raise e
+                logger.error(f"Could not load System 2 model. Running in pass-through mode (System 1 only). Error: {e}")
+                self.model = None
+                self.tokenizer = None
         else:
             logger.info(f"Initialized System2Agent with API model {model_name}")
 
