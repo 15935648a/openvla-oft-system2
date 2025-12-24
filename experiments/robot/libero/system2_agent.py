@@ -26,8 +26,8 @@ class System2Agent:
                     logger.warning("Failed to load fast tokenizer, trying slow tokenizer...")
                     try:
                         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
-                    except Exception:
-                        logger.warning("Failed to load slow tokenizer, trying force_download=True...")
+                    except Exception as e_slow:
+                        logger.warning(f"Failed to load slow tokenizer: {e_slow}, trying force_download=True...")
                         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, force_download=True)
 
                 # Load model without device_map="auto" to avoid CUDA requirement on MPS
