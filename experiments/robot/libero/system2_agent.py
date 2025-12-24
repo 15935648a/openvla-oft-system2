@@ -50,64 +50,95 @@ class System2Agent:
         """
         Summarizes the low-level robot state into text for the LLM.
         """
-        # For now, let's at least mention we are in a simulation. 
-        # In a full system, this would use a VLM or object detector.
-        return "The robot is in the starting position, looking at the tabletop objects."
+        import numpy as np
+        state_parts = []
+
+        # 1. Gripper State
+        # In LIBERO/Robosuite: gripper qpos usually 2 dims.
+        # OpenVLA normalization: -1 (open) to 1 (closed) or vice versa depending on dataset.
+        # But raw simulation values: 0 (closed) to ~0.08 (open).
+        if "robot0_gripper_qpos" in obs:
+            gripper_qpos = obs["robot0_gripper_qpos"]
+            # Heuristic: if values are very small, it's closed/holding.
+            # If values are larger (close to max), it's open.
+            if np.mean(gripper_qpos) < 0.03: 
+                 state_parts.append("The robot gripper is CLOSED (likely holding something).")
+            else:
+                 state_parts.append("The robot gripper is OPEN (holding nothing).")
+        
+        # 2. Ground Truth Object Info (if available in obs)
+        # Scan for keys that look like object positions
+        objects_found = []
+        for key in obs.keys():
+            if "pos" in key and "robot" not in key and "eef" not in key and "joint" not in key and "gripper" not in key:
+                obj_name = key.replace("_pos", "").replace("_", " ")
+                objects_found.append(obj_name)
+        
+        if objects_found:
+            state_parts.append(f"I see the following objects: {', '.join(objects_found)}.")
+        else:
+            state_parts.append("The robot is facing the workspace.")
+
+        return " ".join(state_parts)
 
     def next_subgoal(self, task_description, obs_summary):
         """
         Decides the next subgoal using few-shot prompting to force decomposition.
         """
-        # Few-shot examples to teach the model to break things down
+        # Improved few-shot examples with kitchen/manipulation context
         examples = """
 Task: put the red block on the green plate
-State: The robot is holding nothing.
+State: The robot gripper is OPEN (holding nothing). I see a red block and a green plate.
 Action: Pick up the red block
 
 Task: put both the soup and the sauce in the basket
-State: The robot is holding nothing.
-Action: Pick up the soup
+State: The robot gripper is OPEN (holding nothing). I see a soup can, a sauce bottle, and a basket.
+Action: Pick up the soup can
 
-Task: open the drawer and place the apple inside
-State: The drawer is closed.
-Action: Open the drawer
+Task: put both the soup and the sauce in the basket
+State: The robot gripper is CLOSED (likely holding something).
+Action: Place the soup can in the basket
+
+Task: turn on the stove
+State: The robot gripper is OPEN (holding nothing). I see a stove.
+Action: Turn on the stove
 """
         
-        system_prompt = "You are a robot logic unit. Your job is to break complex tasks into the FIRST single step. Never repeat the full task."
+        system_prompt = "You are a robot logic unit. Your job is to break complex tasks into the FIRST single step based on the current state. Never repeat the full task."
         user_prompt = f"{examples}\nTask: {task_description}\nState: {obs_summary}\nAction:"
 
         if self.is_local and self.model:
-            # Construct prompt manually to ensure examples are seen clearly
+            # Construct prompt
             prompt = f"{system_prompt}\n\n{user_prompt}"
-
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=60, # Short limit to force conciseness
+                    max_new_tokens=60, 
                     do_sample=True,
-                    temperature=0.3,   # Low temp for "boring" but correct answers
+                    temperature=0.3,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
             full_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Extract text AFTER the last "Action:"
+            # Robust Parsing
             if "Action:" in full_text:
-                # We want the very last "Action:" because the prompt has examples in it
+                # Get text after the LAST "Action:"
                 response = full_text.split("Action:")[-1].strip()
             else:
+                # Fallback: try to see if the model just outputted the action directly
+                # Remove the prompt from the response
                 response = full_text.replace(prompt, "").strip()
 
-            # Get just the first line
+            # Clean up first line only
             response = response.split('\n')[0].strip()
-            
-            # Cleanup
             response = response.strip('"').strip("'").strip(".")
             
-            # Safety fallback
-            if len(response) < 3 or "Task:" in response:
+            # Validation
+            if not response or len(response) < 3 or "Task:" in response:
+                logger.warning(f"System 2 generated invalid subgoal: '{response}'. Falling back to full task.")
                 return task_description
             
             return response
