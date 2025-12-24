@@ -95,7 +95,7 @@ class System2Agent:
             response = response.split('\n')[0].replace("Action:", "").strip()
             
             # Cleaning: remove quotes and common rambling
-            response = response.strip('"').strip("'').strip(".")
+            response = response.strip('"').strip("'").strip(".")
             
             # Sanity Check
             if len(response) < 5 or any(c in response for c in ["_", "[", "{", ">"]):
