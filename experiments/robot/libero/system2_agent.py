@@ -50,13 +50,18 @@ class System2Agent:
         """
         Decides the next subgoal based on the high-level task and current observation summary.
         """
-        prompt = f"""You are a robotic planning assistant.
+        # 1. Stricter Prompt
+        prompt = f"""You are a precise robot planner.
 High-level Task: {task_description}
-Current Observation: {obs_summary}
+Current State: {obs_summary}
 
-What is the next immediate short-term subgoal to achieve the high-level task?
-Reply with ONLY the subgoal text.
-Subgoal:"""
+Your job is to output the next immediate step.
+RULES:
+1. Keep it simple and direct (e.g., "pick up the red block").
+2. Do NOT output reasoning, thoughts, or bullets.
+3. Start your response with "Target:".
+
+Target:"""
 
         if self.is_local and self.model:
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
@@ -64,24 +69,34 @@ Subgoal:"""
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=512,
+                    max_new_tokens=128,  # Reduced from 512 to prevent rambling
                     do_sample=True,
-                    temperature=0.7,
+                    temperature=0.6,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
             generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Extract response: look for "Subgoal:" first
-            if "Subgoal:" in generated_text:
-                response = generated_text.split("Subgoal:")[-1].strip().split('\n')[0]
-            elif prompt in generated_text:
-                response = generated_text.split(prompt)[-1].strip().split('\n')[0]
+            # 2. Extract specific "Target:" line
+            response = ""
+            if "Target:" in generated_text:
+                # Get text after the LAST "Target:" (in case model repeats prompt)
+                response = generated_text.split("Target:")[-1].strip().split('\n')[0]
             else:
-                response = generated_text.strip().split('\n')[-1]
+                # Fallback: try to just take the last non-empty line
+                lines = [l.strip() for l in generated_text.split('\n') if l.strip()]
+                if lines:
+                    response = lines[-1]
+
+            # 3. Aggressive Cleaning / Sanity Check
+            # Remove common "thinking" artifacts
+            forbidden_chars = ["_", "[", "]", "{", "}", "<", ">", "*"]
+            is_garbage = any(char in response for char in forbidden_chars) or len(response) < 3
             
-            # Clean up potential remaining thought markers
-            response = response.replace("<thought>", "").replace("</thought>", "").strip()
+            if is_garbage:
+                logger.warning(f"System 2 generated garbage: '{response}'. Falling back to original task.")
+                return task_description
+            
             return response
 
         # Fallback or API logic
