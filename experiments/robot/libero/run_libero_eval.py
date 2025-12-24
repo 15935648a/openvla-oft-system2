@@ -107,7 +107,7 @@ class GenerateConfig:
         else:
             return "deterministic"
     use_system2: bool = False                        # Whether to use System 2 (LLM) for subgoal generation
-    system2_model: str = "gpt-4o"                    # Model name for System 2
+    system2_model: str = "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B" # Model name for System 2
     num_open_loop_steps: int = 8                     # Number of actions to execute open-loop before requerying policy
 
     lora_rank: int = 32                              # Rank of LoRA weight matrix (MAKE SURE THIS MATCHES TRAINING!)

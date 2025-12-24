@@ -5,7 +5,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 logger = logging.getLogger(__name__)
 
 class System2Agent:
-    def __init__(self, model_name="gpt-4o", api_key=None):
+    def __init__(self, model_name="nvidia/Nemotron-Research-Reasoning-Qwen-1.5B", api_key=None):
         self.model_name = model_name
         self.api_key = api_key
         self.is_local = False
@@ -64,18 +64,24 @@ Subgoal:"""
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=50,
+                    max_new_tokens=512,
                     do_sample=True,
                     temperature=0.7,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
             generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            # Simple logic to extract response if model echoes prompt
-            if prompt in generated_text:
+            
+            # Extract response: look for "Subgoal:" first
+            if "Subgoal:" in generated_text:
                 response = generated_text.split("Subgoal:")[-1].strip().split('\n')[0]
+            elif prompt in generated_text:
+                response = generated_text.split(prompt)[-1].strip().split('\n')[0]
             else:
-                response = generated_text.strip().split('\n')[0]
+                response = generated_text.strip().split('\n')[-1]
+            
+            # Clean up potential remaining thought markers
+            response = response.replace("<thought>", "").replace("</thought>", "").strip()
             return response
 
         # Fallback or API logic

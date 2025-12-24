@@ -3,7 +3,7 @@ import torch
 
 print(f"Check Device - CUDA: {torch.cuda.is_available()}, MPS: {torch.backends.mps.is_available()}")
 
-model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+model_id = "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B"
 print(f"Initializing System2Agent with {model_id}...")
 
 try:
