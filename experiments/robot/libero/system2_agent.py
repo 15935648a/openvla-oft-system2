@@ -46,62 +46,61 @@ class System2Agent:
         else:
             logger.info(f"Initialized System2Agent with API model {model_name}")
 
+    def summarize_observation(self, obs):
+        """
+        Summarizes the low-level robot state into text for the LLM.
+        """
+        # For now, let's at least mention we are in a simulation. 
+        # In a full system, this would use a VLM or object detector.
+        return "The robot is in the starting position, looking at the tabletop objects."
+
     def next_subgoal(self, task_description, obs_summary):
         """
-        Decides the next subgoal based on the high-level task and current observation summary.
+        Decides the next subgoal using a chat format for better instruction following.
         """
-        # 1. Stricter Prompt
-        prompt = f"""You are a precise robot planner.
-High-level Task: {task_description}
-Current State: {obs_summary}
-
-Your job is to output the next immediate step.
-RULES:
-1. Keep it simple and direct (e.g., "pick up the red block").
-2. Do NOT output reasoning, thoughts, or bullets.
-3. Start your response with "Target:".
-
-Target:"""
+        messages = [
+            {"role": "system", "content": "You are a robotic controller. Given a task and a state, output ONLY the next immediate physical subgoal as a short, simple sentence."},
+            {"role": "user", "content": f"Task: {task_description}\nState: {obs_summary}\n\nWhat is the next immediate step? Output it starting with 'Action:'"}
+        ]
 
         if self.is_local and self.model:
+            # Use chat template if available, else fallback to manual format
+            try:
+                prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            except:
+                prompt = f"System: {messages[0]['content']}\nUser: {messages[1]['content']}\nAssistant: Action:"
+
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=128,  # Reduced from 512 to prevent rambling
+                    max_new_tokens=128,
                     do_sample=True,
-                    temperature=0.6,
+                    temperature=0.4, # Lower temperature for more consistency
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
-            generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            full_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # 2. Extract specific "Target:" line
-            response = ""
-            if "Target:" in generated_text:
-                # Get text after the LAST "Target:" (in case model repeats prompt)
-                response = generated_text.split("Target:")[-1].strip().split('\n')[0]
+            # Extract only the assistant's new response
+            if "Assistant:" in full_text:
+                response = full_text.split("Assistant:")[-1].strip()
+            elif "Action:" in full_text:
+                response = full_text.split("Action:")[-1].strip()
             else:
-                # Fallback: try to just take the last non-empty line
-                lines = [l.strip() for l in generated_text.split('\n') if l.strip()]
-                if lines:
-                    response = lines[-1]
+                response = full_text.replace(prompt, "").strip()
 
-            # 3. Aggressive Cleaning / Sanity Check
-            # Remove common "thinking" artifacts
-            forbidden_chars = ["_", "[", "]", "{", "}", "<", ">", "*"]
-            is_garbage = any(char in response for char in forbidden_chars) or len(response) < 3
+            # Final Cleanup: Get the very first line of the actual response
+            response = response.split('\n')[0].replace("Action:", "").strip()
             
-            if is_garbage:
-                logger.warning(f"System 2 generated garbage: '{response}'. Falling back to original task.")
+            # Cleaning: remove quotes and common rambling
+            response = response.strip('"').strip("'').strip(".")
+            
+            # Sanity Check
+            if len(response) < 5 or any(c in response for c in ["_", "[", "{", ">"]):
                 return task_description
             
             return response
 
-        # Fallback or API logic
         return task_description
-
-    def summarize_observation(self, obs):
-        # Placeholder for VLM summary logic
-        return "Standard robot state"
