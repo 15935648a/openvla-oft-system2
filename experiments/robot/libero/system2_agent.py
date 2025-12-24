@@ -56,49 +56,58 @@ class System2Agent:
 
     def next_subgoal(self, task_description, obs_summary):
         """
-        Decides the next subgoal using a chat format for better instruction following.
+        Decides the next subgoal using few-shot prompting to force decomposition.
         """
-        messages = [
-            {"role": "system", "content": "You are a robotic controller. Given a task and a state, output ONLY the next immediate physical subgoal as a short, simple sentence."},
-            {"role": "user", "content": f"Task: {task_description}\nState: {obs_summary}\n\nWhat is the next immediate step? Output it starting with 'Action:'"}
-        ]
+        # Few-shot examples to teach the model to break things down
+        examples = """
+Task: put the red block on the green plate
+State: The robot is holding nothing.
+Action: Pick up the red block
+
+Task: put both the soup and the sauce in the basket
+State: The robot is holding nothing.
+Action: Pick up the soup
+
+Task: open the drawer and place the apple inside
+State: The drawer is closed.
+Action: Open the drawer
+"""
+        
+        system_prompt = "You are a robot logic unit. Your job is to break complex tasks into the FIRST single step. Never repeat the full task."
+        user_prompt = f"{examples}\nTask: {task_description}\nState: {obs_summary}\nAction:"
 
         if self.is_local and self.model:
-            # Use chat template if available, else fallback to manual format
-            try:
-                prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            except:
-                prompt = f"System: {messages[0]['content']}\nUser: {messages[1]['content']}\nAssistant: Action:"
+            # Construct prompt manually to ensure examples are seen clearly
+            prompt = f"{system_prompt}\n\n{user_prompt}"
 
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=128,
+                    max_new_tokens=60, # Short limit to force conciseness
                     do_sample=True,
-                    temperature=0.4, # Lower temperature for more consistency
+                    temperature=0.3,   # Low temp for "boring" but correct answers
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
             full_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Extract only the assistant's new response
-            if "Assistant:" in full_text:
-                response = full_text.split("Assistant:")[-1].strip()
-            elif "Action:" in full_text:
+            # Extract text AFTER the last "Action:"
+            if "Action:" in full_text:
+                # We want the very last "Action:" because the prompt has examples in it
                 response = full_text.split("Action:")[-1].strip()
             else:
                 response = full_text.replace(prompt, "").strip()
 
-            # Final Cleanup: Get the very first line of the actual response
-            response = response.split('\n')[0].replace("Action:", "").strip()
+            # Get just the first line
+            response = response.split('\n')[0].strip()
             
-            # Cleaning: remove quotes and common rambling
+            # Cleanup
             response = response.strip('"').strip("'").strip(".")
             
-            # Sanity Check
-            if len(response) < 5 or any(c in response for c in ["_", "[", "{", ">"]):
+            # Safety fallback
+            if len(response) < 3 or "Task:" in response:
                 return task_description
             
             return response
