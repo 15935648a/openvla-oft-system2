@@ -1,27 +1,74 @@
-> **Fork Notice:** This repository is forked from [openvla/openvla](https://github.com/openvla/openvla). All original work and credits belong to the original authors.
+# OpenVLA-OFT System2
 
-# Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success
+> **This repository is forked from [openvla/openvla](https://github.com/openvla/openvla) and builds upon the work of [OpenVLA-OFT](https://openvla-oft.github.io/) by Moo Jin Kim, Chelsea Finn, and Percy Liang (Stanford University).**
+> Original paper: [Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success](https://arxiv.org/abs/2502.19645)
 
-**Project website: https://openvla-oft.github.io/**
+---
 
-**Paper: https://arxiv.org/abs/2502.19645**
+## What is This?
 
-**Summary video: https://youtu.be/T3Zkkr_NTSA**
+This fork extends OpenVLA-OFT with a **System2 reasoning layer** — a two-stage hierarchical control architecture for robot manipulation:
+
+- **System 1 (Fast):** The VLA (Vision-Language-Action) model generates low-level action chunks in real time.
+- **System 2 (Slow):** A reasoning LLM (e.g., `nvidia/Nemotron-Research-Reasoning-Qwen-1.5B`) decomposes the task into subgoals, guiding System 1 at a higher level.
+
+This approach lets the robot break complex manipulation tasks (e.g., *"pick up the red block and place it on the green plate"*) into interpretable intermediate steps, improving robustness and generalization.
+
+---
+
+## Key Additions Over the Original
+
+| Component | File | Description |
+|-----------|------|-------------|
+| `System2Agent` class | `experiments/robot/libero/system2_agent.py` | Reasoning agent for hierarchical task decomposition |
+| Observation summarizer | `system2_agent.py` | Converts robot state (gripper, objects) to natural language |
+| Subgoal generator | `system2_agent.py` | Few-shot prompting to produce the next step |
+| LIBERO integration | `experiments/robot/libero/run_libero_eval.py` | System2 used during evaluation |
+| Standalone test | `test_system2_standalone.py` | Quick validation of the System2 agent |
+
+---
 
 ## System Requirements
 
-Inference:
-* 1 GPU with ~16 GB VRAM for LIBERO sim benchmark tasks
-* 1 GPU with ~18 GB VRAM for ALOHA robot tasks
+**Inference:**
+- 1 GPU with ~16 GB VRAM (LIBERO simulation tasks)
+- 1 GPU with ~18 GB VRAM (ALOHA real-robot tasks)
 
-Training:
-* Between 1-8 GPUs with 27-80 GB, depending on the desired training setup (with default bfloat16 data type). See [this FAQ on our project website](https://openvla-oft.github.io/#train-compute) for details.
+**Training:**
+- 1–8 GPUs with 27–80 GB VRAM (default bfloat16)
+- See the [original FAQ](https://openvla-oft.github.io/#train-compute) for details.
+
+**System2 Agent:**
+- An additional model (e.g., 1.5B–7B LLM) runs on any available device (CUDA / MPS / CPU).
+- Default model: `nvidia/Nemotron-Research-Reasoning-Qwen-1.5B`
+
+---
 
 ## Quick Start
 
-First, set up a conda environment (see instructions in [SETUP.md](SETUP.md)).
+### 1. Set Up Environment
 
-Then, run the Python script below to download a pretrained OpenVLA-OFT checkpoint and run inference to generate an action chunk:
+```bash
+conda create -n openvla-oft python=3.10 -y
+conda activate openvla-oft
+pip3 install torch torchvision torchaudio
+git clone https://github.com/15935648a/openvla-oft-system2.git
+cd openvla-oft-system2
+pip install -e .
+# Install Flash Attention 2
+pip install packaging ninja
+pip install "flash-attn==2.5.5" --no-build-isolation
+```
+
+### 2. Run System2 Agent (Standalone Test)
+
+```bash
+python test_system2_standalone.py
+```
+
+This will load the reasoning model and demonstrate subgoal generation from a task description.
+
+### 3. Run VLA Inference
 
 ```python
 import pickle
@@ -29,71 +76,174 @@ from experiments.robot.libero.run_libero_eval import GenerateConfig
 from experiments.robot.openvla_utils import get_action_head, get_processor, get_proprio_projector, get_vla, get_vla_action
 from prismatic.vla.constants import NUM_ACTIONS_CHUNK, PROPRIO_DIM
 
-# Instantiate config (see class GenerateConfig in experiments/robot/libero/run_libero_eval.py for definitions)
 cfg = GenerateConfig(
-    pretrained_checkpoint = "moojink/openvla-7b-oft-finetuned-libero-spatial",
-    use_l1_regression = True,
-    use_diffusion = False,
-    use_film = False,
-    num_images_in_input = 2,
-    use_proprio = True,
-    load_in_8bit = False,
-    load_in_4bit = False,
-    center_crop = True,
-    num_open_loop_steps = NUM_ACTIONS_CHUNK,
-    unnorm_key = "libero_spatial_no_noops",
+    pretrained_checkpoint="moojink/openvla-7b-oft-finetuned-libero-spatial",
+    use_l1_regression=True,
+    use_diffusion=False,
+    use_film=False,
+    num_images_in_input=2,
+    use_proprio=True,
+    center_crop=True,
 )
-
-# Load OpenVLA-OFT policy and inputs processor
-vla = get_vla(cfg)
 processor = get_processor(cfg)
-
-# Load MLP action head to generate continuous actions (via L1 regression)
+vla = get_vla(cfg)
 action_head = get_action_head(cfg, llm_dim=vla.llm_dim)
-
-# Load proprio projector to map proprio to language embedding space
 proprio_projector = get_proprio_projector(cfg, llm_dim=vla.llm_dim, proprio_dim=PROPRIO_DIM)
 
-# Load sample observation:
-#   observation (dict): {
-#     "full_image": primary third-person image,
-#     "wrist_image": wrist-mounted camera image,
-#     "state": robot proprioceptive state,
-#     "task_description": task description,
-#   }
-with open("experiments/robot/libero/sample_libero_spatial_observation.pkl", "rb") as file:
-    observation = pickle.load(file)
+with open("experiments/robot/libero/sample_libero_spatial_observation.pkl", "rb") as f:
+    obs = pickle.load(f)
 
-# Generate robot action chunk (sequence of future actions)
-actions = get_vla_action(cfg, vla, processor, observation, observation["task_description"], action_head, proprio_projector)
-print("Generated action chunk:")
-for act in actions:
-    print(act)
+action = get_vla_action(
+    cfg, vla, processor, obs,
+    task_label="pick up the red mug",
+    action_head=action_head,
+    proprio_projector=proprio_projector,
+)
+print("Generated action chunk:", action)
 ```
 
-## Installation
+---
 
-See [SETUP.md](SETUP.md) for instructions on setting up the conda environment.
+## System2 Architecture
 
-## Training and Evaluation
+```
+Task: "put the bowl on the stove"
+         │
+         ▼
+  ┌─────────────┐
+  │ System2Agent│  ← Reasoning LLM (slow, runs every N steps)
+  │  next_subgoal│
+  └──────┬──────┘
+         │ "move gripper toward the bowl"
+         ▼
+  ┌─────────────┐
+  │   OpenVLA   │  ← VLA model (fast, runs every step)
+  │  (OFT recipe)│
+  └──────┬──────┘
+         │ action chunk [Δx, Δy, Δz, Δrx, Δry, Δrz, gripper]
+         ▼
+      Robot
+```
 
-See [LIBERO.md](LIBERO.md) for fine-tuning/evaluating on LIBERO simulation benchmark task suites.
+The `System2Agent` uses few-shot prompting to output a single next subgoal based on the current observation summary and overall task goal.
 
-See [ALOHA.md](ALOHA.md) for fine-tuning/evaluating on real-world ALOHA robot tasks.
+---
 
-## Support
+## Evaluation
 
-If you run into any issues, please open a new GitHub issue. If you do not receive a response within 2 business days, please email Moo Jin Kim (moojink@cs.stanford.edu) to bring the issue to his attention.
+### LIBERO Simulation
 
-## Citation
+```bash
+python experiments/robot/libero/run_libero_eval.py \
+  --pretrained_checkpoint moojink/openvla-7b-oft-finetuned-libero-spatial \
+  --task_suite_name libero_spatial \
+  --center_crop True
+```
 
-If you use our code in your work, please cite [our paper](https://arxiv.org/abs/2502.19645):
+Available pretrained checkpoints:
+- `moojink/openvla-7b-oft-finetuned-libero-spatial`
+- `moojink/openvla-7b-oft-finetuned-libero-object`
+- `moojink/openvla-7b-oft-finetuned-libero-goal`
+- `moojink/openvla-7b-oft-finetuned-libero-10`
+- `moojink/openvla-7b-oft-finetuned-libero-spatial-object-goal-10` (combined)
+
+See [LIBERO.md](LIBERO.md) for full details.
+
+### ALOHA Real-Robot
+
+See [ALOHA.md](ALOHA.md) for real-robot training and evaluation instructions.
+
+---
+
+## Fine-Tuning
+
+### LIBERO (Simulation)
+
+```bash
+torchrun --standalone --nnodes 1 --nproc-per-node <NUM_GPUS> vla-scripts/finetune.py \
+  --vla_path openvla/openvla-7b \
+  --dataset_name libero_spatial_no_noops \
+  --use_l1_regression True \
+  --use_film False \
+  --num_images_in_input 2 \
+  --use_proprio True \
+  --batch_size 8 \
+  --max_steps 150005
+```
+
+### ALOHA (Real Robot)
+
+```bash
+torchrun --standalone --nnodes 1 --nproc-per-node <NUM_GPUS> vla-scripts/finetune.py \
+  --vla_path openvla/openvla-7b \
+  --use_l1_regression True \
+  --use_diffusion False \
+  --use_film True \
+  --num_images_in_input 3 \
+  --use_proprio True \
+  --batch_size 4 \
+  --max_steps 100005
+```
+
+---
+
+## Repository Structure
+
+```
+openvla-oft-system2/
+├── experiments/robot/
+│   ├── libero/
+│   │   ├── system2_agent.py          # ← System2 reasoning agent (this fork)
+│   │   ├── run_libero_eval.py        # LIBERO evaluation with System2 integration
+│   │   └── libero_utils.py
+│   ├── aloha/                        # Real-robot ALOHA scripts
+│   └── openvla_utils.py              # Core VLA utilities
+├── prismatic/                        # Core model architecture
+│   ├── models/
+│   │   ├── action_heads.py           # L1 regression & diffusion heads
+│   │   ├── projectors.py             # Proprio & noisy action projectors
+│   │   └── film_vit_wrapper.py       # FiLM language conditioning
+│   └── vla/
+│       ├── constants.py              # Robot platform configs (LIBERO/ALOHA/BRIDGE)
+│       └── datasets/                 # RLDS data pipeline
+├── vla-scripts/
+│   ├── finetune.py                   # Main fine-tuning script
+│   ├── deploy.py                     # FastAPI inference server
+│   └── merge_lora_weights_and_save.py
+├── test_system2_standalone.py        # ← System2 standalone test (this fork)
+├── SETUP.md
+├── LIBERO.md
+└── ALOHA.md
+```
+
+---
+
+## Credits and License
+
+This repository is a fork of **[openvla/openvla](https://github.com/openvla/openvla)**.
+
+Original work by:
+- **Moo Jin Kim** (Stanford University) — moojink@cs.stanford.edu
+- **Chelsea Finn** (Stanford University)
+- **Percy Liang** (Stanford University)
+
+If you use this code, please cite the original paper:
 
 ```bibtex
-@article{kim2025fine,
+@article{kim25oftrecipe,
   title={Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success},
-  author={Kim, Moo Jin and Finn, Chelsea and Liang, Percy},
+  author={Kim, Moo Jin and Pertsch, Karl and Sundaralingam, Balakumar and Davchev, Todor and Beltran-Hernandez, Camillo and Shi, Lucy Xiaoyang and Xiao, Ted and Hausman, Karol and Loquercio, Antonio and Finn, Chelsea and others},
   journal={arXiv preprint arXiv:2502.19645},
   year={2025}
 }
 ```
+
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+
+---
+
+## Support
+
+For questions about the original OpenVLA-OFT framework, contact the original authors at moojink@cs.stanford.edu.
+
+For questions specific to the System2 extension in this fork, open an issue in this repository.
