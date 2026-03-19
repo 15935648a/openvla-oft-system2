@@ -1,3 +1,5 @@
+> **Fork Notice:** This repository is forked from [openvla/openvla](https://github.com/openvla/openvla). All original work and credits belong to the original authors.
+
 # Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success
 
 **Project website: https://openvla-oft.github.io/**
